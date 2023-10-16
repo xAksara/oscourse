@@ -144,7 +144,7 @@ ifeq ($(D),1)
 CFLAGS += -O0
 else
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
-CFLAGS += -O1
+# CFLAGS += -O1
 endif
 CFLAGS += -ffreestanding -fno-omit-frame-pointer -mno-red-zone
 CFLAGS += -Wall -Wformat=2 -Wno-unused-function -Werror -g -gpubnames -gdwarf-4
