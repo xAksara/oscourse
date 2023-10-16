@@ -45,6 +45,7 @@ save_trapframe_syscall:
     # fallthrough
 
 save_trapframe:
+    # Guard to avoid hard to debug errors due to cli misusage.
     orl $FL_IF, saved_rflags(%rip)
 
     # We already pushed ss,rsp,rflags,cs,rip
@@ -75,7 +76,7 @@ sys_yield:
 .type  sys_exit, @function
 sys_exit:
     cli
-    leaq bootstacktop(%rip), %rsp
+    leaq (bootstacktop)(%rip), %rsp
     xor %ebp, %ebp
     call csys_exit
     jmp .
