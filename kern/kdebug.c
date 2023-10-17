@@ -87,6 +87,23 @@ error:
     return res;
 }
 
+
+uintptr_t find_asm_name(const char* fname) {
+    struct Elf64_Sym* symb = (struct Elf64_Sym*) uefi_lp->SymbolTableStart;
+    struct Elf64_Sym* end = (struct Elf64_Sym*) uefi_lp->SymbolTableEnd;
+
+    uint8_t* strtable = (uint8_t*) uefi_lp->StringTableStart;
+
+    for(; symb < end; symb = symb + 1) {
+        if(symb->st_name != 0) {
+            if(!strcmp(fname, (const char*) (strtable + symb->st_name))) {
+                return (uintptr_t) symb->st_value;
+            }
+        }
+    }
+    return 0;
+}
+
 uintptr_t
 find_function(const char *const fname) {
     /* There are two functions for function name lookup.
@@ -97,5 +114,18 @@ find_function(const char *const fname) {
 
     // LAB 3: Your code here:
 
-    return 0;
+    // if (!strcmp(fname, "sys_yield"))
+    //     return (uintptr_t)sys_yield;
+
+    // if (!strcmp(fname, "sys_exit"))
+    //     return (uintptr_t)sys_exit;
+
+    struct Dwarf_Addrs addrs;
+    load_kernel_dwarf_info(&addrs);
+    uintptr_t offset = 0;
+    if (!address_by_fname(&addrs, fname, &offset))
+        return offset;
+    if (!naive_address_by_fname(&addrs, fname, &offset))
+        return offset;
+    return find_asm_name(fname);
 }
