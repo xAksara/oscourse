@@ -149,11 +149,11 @@ env_alloc(struct Env **newenv_store, envid_t parent_id, enum EnvType type) {
     env->env_tf.tf_cs = GD_KT;
 
     // LAB 3: Your code here:
-    // static uintptr_t stack_top = 0x2000000;
-    // env->env_tf.tf_rsp = stack_top;
-    // stack_top += 2 * PAGE_SIZE;
     static uintptr_t stack_top = 0x2000000;
-    env->env_tf.tf_rsp = stack_top - 2 * PAGE_SIZE * (env - envs);
+    env->env_tf.tf_rsp = stack_top;
+    stack_top -= PROG_STACK_SIZE;
+    // static uintptr_t stack_top = 0x2000000;
+    // env->env_tf.tf_rsp = stack_top - 2 * PAGE_SIZE * (env - envs);
 
 #else
     env->env_tf.tf_ds = GD_UD | 3;
