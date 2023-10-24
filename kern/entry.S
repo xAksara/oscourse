@@ -10,6 +10,8 @@
 
 .globl entry
 entry:
+    # LAB 4
+    cli
     # Set up kernel stack
     leaq bootstacktop(%rip),%rsp
     xor %ebp, %ebp
