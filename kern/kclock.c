@@ -60,10 +60,8 @@ void
 rtc_timer_init(void) {
     // LAB 4: Your code here
     // (use cmos_read8()/cmos_write8())
-    uint8_t areg = cmos_read8(RTC_AREG) | 0xF;
-    cmos_write8(RTC_AREG, areg);
-    uint8_t breg = cmos_read8(RTC_BREG) | RTC_PIE;
-    cmos_write8(RTC_BREG, breg);
+    cmos_write8(RTC_AREG, cmos_read8(RTC_AREG) | 0xF);
+    cmos_write8(RTC_BREG, cmos_read8(RTC_BREG) | RTC_PIE);
 }
 
 uint8_t
