@@ -199,6 +199,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
 
     /* NOTE: find_function from kdebug.c should be used */
     struct Elf *elf = (struct Elf *)binary;
+    assert(binary + elf->e_shoff <= binary + size);
     struct Secthdr *sh = (struct Secthdr *)(binary + elf->e_shoff);
     char *shstr = (char *)binary + sh[elf->e_shstrndx].sh_offset;
 
@@ -219,7 +220,7 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
             uintptr_t addr = find_function(name);
 
             if (addr) {
-                assert(symbol->st_value >= image_start && symbol->st_value <= image_end);
+                assert(symbol->st_value >= image_start && symbol->st_value + 8 <= image_end);
                 *((uintptr_t *)symbol->st_value) = addr;
             }
         }
