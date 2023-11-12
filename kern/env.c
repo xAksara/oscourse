@@ -198,9 +198,20 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
     // LAB 3: Your code here:
 
     /* NOTE: find_function from kdebug.c should be used */
+    if (!binary || !env) return -E_INVALID_EXE;
     struct Elf *elf = (struct Elf *)binary;
-    assert(binary + elf->e_shoff <= binary + size);
+    UINT64 r;
+    if(elf->e_shnum <= 0)
+        return -E_INVALID_EXE;
+    if(__builtin_add_overflow(elf->e_shoff,  elf->e_shnum * sizeof(struct Secthdr), &r)) {
+        return -E_INVALID_EXE;
+    }
+    if(r > size)
+        return -E_INVALID_EXE;
     struct Secthdr *sh = (struct Secthdr *)(binary + elf->e_shoff);
+
+    if(!(size >= sh[elf->e_shstrndx].sh_offset))
+        return -E_INVALID_EXE;
     char *shstr = (char *)binary + sh[elf->e_shstrndx].sh_offset;
 
     size_t strtab_section_num = find_section(sh, shstr, elf->e_shnum, ELF_SHT_STRTAB, ".strtab");
@@ -212,7 +223,10 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
     struct Elf64_Sym *symbols = (struct Elf64_Sym *)(binary + sh[symtab_section_num].sh_offset);
     size_t symbols_cnt = sh[symtab_section_num].sh_size / sizeof(*symbols);
 
+    // assert(shstr % sizeof(uintptr_t) != 0);
+
     for (size_t i = 0; i < symbols_cnt; i++) {
+        // assert(sh->sh_name < size);
         struct Elf64_Sym *symbol = &symbols[i];
         if (ELF64_ST_BIND(symbol->st_info) == STB_GLOBAL &&
             ELF64_ST_TYPE(symbol->st_info) == STT_OBJECT) {
@@ -220,13 +234,16 @@ bind_functions(struct Env *env, uint8_t *binary, size_t size, uintptr_t image_st
             uintptr_t addr = find_function(name);
 
             if (addr) {
-                assert(symbol->st_value >= image_start && symbol->st_value + 8 <= image_end);
-                *((uintptr_t *)symbol->st_value) = addr;
+                if(symbol->st_value >= image_start && symbol->st_value <= image_end - 8 && !(symbol->st_value % sizeof(uintptr_t)))
+                    *((uintptr_t *)symbol->st_value) = addr;
+                else 
+                    return -E_INVALID_EXE;
             }
         }
     }
     return 0;
 }
+
 
 /* Set up the initial program binary, stack, and processor flags
  * for a user process.
