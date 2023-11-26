@@ -35,9 +35,9 @@ _head64:
 
     # Setting the 4-level page table with only the second entry needed (PML4)
     leaq pml4(%rip), %rdi
-    leaq (pdpt1 + (PTE_P | PTE_W))(%rip), %rax
+    leaq (pdpt1 + (PTE_P | PTE_W))(%rip), %rax //адрес на pdpt1 с P W битами
     stosq
-    movq %rax, (%rdi)
+    movq %rax, (%rdi) //пишем уже в pdpt1
     leaq (pdpt2 + (PTE_P | PTE_W))(%rip), %rax
     stosq
 
