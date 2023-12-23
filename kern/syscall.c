@@ -416,6 +416,7 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
     case SYS_env_destroy:
         return sys_env_destroy((envid_t)a1);
     // LAB 9: Your code here
+<<<<<<< HEAD
     case SYS_exofork:
         return sys_exofork();
     case SYS_alloc_region:
@@ -438,4 +439,9 @@ syscall(uintptr_t syscallno, uintptr_t a1, uintptr_t a2, uintptr_t a3, uintptr_t
     default:
         return -E_NO_SYS;
     }
+=======
+    // LAB 10: Your code here
+
+    return -E_NO_SYS;
+>>>>>>> lab10
 }
