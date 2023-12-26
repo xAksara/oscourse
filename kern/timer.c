@@ -91,85 +91,81 @@ acpi_find_table(const char *sign) {
      */
     // LAB 5: Your code here:
     
-    static RSDT *rsdt = 0;
-    static bool isXSDT = 0;
+    static RSDT *rsdt = NULL;
+    static size_t rsdt_entries;
+
+    uint8_t checksum = 0;
 
     if (!rsdt) {
-        if (!uefi_lp->ACPIRoot)
-            panic("No rsdp\n");
+        physaddr_t rsdp_pa = uefi_lp->ACPIRoot;
+        RSDP *rsdp = mmio_map_region(rsdp_pa, sizeof(*rsdp));
 
-        physaddr_t acpi_phys = uefi_lp->ACPIRoot;
-        RSDP *rsdp = mmio_map_region(acpi_phys, sizeof(*rsdp));
-
-        /* Validate */
-        if (strncmp(rsdp->Signature, "RSD PTR ", 8))
-            panic("Malformed RSDP");
-
-        physaddr_t rsdt_phys;
-        if (rsdp->Revision) {
-            /* ACPI 2.0 or higher is used */
-            /* Validate checksum of full struct
-             * Calculate and validate checksum of first and second halfs*/
-            uint8_t checksum = 0;
-            uint8_t *iter;
-            for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
-                checksum += *iter;
-
-            if (checksum)
-                panic("Malformed RSDP");
-
-            for (; iter < ((uint8_t *)rsdp + sizeof(*rsdp)); iter++)
-                checksum += *iter;
-
-            if (checksum)
-                panic("Malformed RSDP");
-
-            rsdt_phys = rsdp->XsdtAddress;
-            isXSDT = 1;
-        } else {
-            /* ACPI 1.0 is used */
-            uint8_t checksum = 0;
-            uint8_t *iter;
-            /* Validate checksum of first half of struct */
-            
-            for (iter = (uint8_t *)rsdp; iter < (uint8_t *)&(rsdp->Length); iter++)
-                checksum += *iter;
-
-            if (checksum)
-                panic("Malformed RSDP");
-            rsdt_phys = rsdp->RsdtAddress;
+        // RSDP validation
+        if (strncmp(rsdp->Signature, "RSD PTR ", 8)) {
+            panic("Corrupted RSDP\n");
         }
 
-        rsdt = mmio_map_region(rsdt_phys, sizeof(RSDT));
-        /* Remap using actual size */
-        rsdt = mmio_map_region(rsdt_phys, rsdt->h.Length);
+        physaddr_t rsdt_pa;
 
-        /* Validate header checksum */
-        uint8_t checksum = 0;
+        //// ACPI v1.0
+        
+        uint8_t *byte = (uint8_t *) rsdp;
+        const uint8_t *rsdp_v1_end = byte + 20;
+        const uint8_t *rsdp_v2_end = byte + sizeof(*rsdp);
 
-        for (int i = 0; i < rsdt->h.Length; i++)
-            checksum += ((uint8_t *) &rsdt->h)[i];
-        if (checksum)
-                panic("Malformed RSDT header");
-    }
-
-    size_t entries_cnt = (rsdt->h.Length - sizeof(ACPISDTHeader)) / (isXSDT ? 8 : 4);
-    for (size_t i = 0; i < entries_cnt; i++) {
-        physaddr_t header_physical = 0;
-        if (!isXSDT) {
-            header_physical = rsdt->PointerToOtherSDT[i];
-        } else {
-            header_physical = ((int64_t *)(void *)rsdt->PointerToOtherSDT)[i];
+        for ( ; byte < rsdp_v1_end; ++byte) {
+            checksum += *byte;
         }
-        if (!header_physical)
-            continue;
-        ACPISDTHeader *header = mmio_map_region(header_physical, sizeof(ACPISDTHeader));
-        /* Remap using actual size */
-        header = mmio_map_region(header_physical, header->Length);
 
-        if (!strncmp(header->Signature, sign, 4))
-            return header;
+        if (checksum) {
+            panic("Corrupted RSDP\n");
+        }
+
+        rsdt_pa = rsdp->RsdtAddress;
+
+        if (rsdp->Revision == 2) {
+            //// ACPI v2.0 or higher
+            for ( ; byte < rsdp_v2_end; ++byte) {
+                checksum += *byte;
+            }
+            if (checksum) {
+                panic("Corrupted RSDP\n");
+            }
+            rsdt_pa = rsdp->XsdtAddress;
+        }
+
+        rsdt = mmio_map_region(rsdt_pa, sizeof(*rsdt));
+        rsdt = mmio_remap_last_region(rsdt_pa, (void *) rsdt, sizeof(*rsdt), rsdt->h.Length);
+
+        //cprintf("RSDT len %u\n", rsdt->h.Length);
+
+        for (uint32_t i = 0; i < rsdt->h.Length; i++) {
+            checksum += ((uint8_t *) rsdt)[i];
+        }
+        if (checksum) {
+            panic("Corrupted RSDT\n");
+        }
+        rsdt_entries = (rsdt->h.Length - sizeof(rsdt->h)) / (rsdp->Revision == 0 ? 4 : 8);
     }
+    
+
+    for (size_t i = 0; i < rsdt_entries; i++) {
+        physaddr_t sdt_header_pa = ((physaddr_t *) rsdt->PointerToOtherSDT)[i];
+        ACPISDTHeader *sdt_header = mmio_map_region(sdt_header_pa, sizeof(*sdt_header));
+        sdt_header = mmio_remap_last_region(sdt_header_pa, sdt_header, sizeof(*sdt_header), sdt_header->Length);
+
+        // Validation
+        for (size_t i = 0; i < sdt_header->Length; i++) {
+            checksum += ((uint8_t *) sdt_header)[i];
+        }
+        if (checksum) {
+            panic("Corrupted ACPI table '%.4s'", sdt_header->Signature);
+        }
+
+        if (!strncmp(sdt_header->Signature, sign, 4))
+            return (void *) sdt_header;
+    }
+
     return NULL;
 }
 

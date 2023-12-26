@@ -60,8 +60,31 @@ alloc_block(void) {
      * super->s_nblocks blocks in the disk altogether. */
 
     // LAB 10: Your code here
+    blockno_t blockno = 0;
+        for (blockno_t cur_block = 0; cur_block < super->s_nblocks; cur_block++)
+        if (block_is_free(cur_block)) {
+            CLRBIT(bitmap, cur_block);
+            flush_block(&bitmap[cur_block / 32]);
+            return cur_block;
+        }
 
-    return 0;
+    if (blockno == 0) {
+        int first_nonzero_64bit = 1;
+        for (; first_nonzero_64bit < super->s_nblocks / 64; first_nonzero_64bit++)
+            if (((uint64_t *)bitmap)[first_nonzero_64bit] != 0)
+                break;
+        for (uint64_t i = first_nonzero_64bit * 64; i < super->s_nblocks; i++)
+            if (block_is_free(i)) {
+                blockno = i;
+                break;
+            }
+    }
+    if (blockno != 0) {
+        CLRBIT(bitmap, blockno);
+        flush_block(bitmap + blockno / 32);
+    }
+
+    return blockno;
 }
 
 /* Validate the file system bitmap.
@@ -123,8 +146,21 @@ fs_init(void) {
 int
 file_block_walk(struct File *f, blockno_t filebno, blockno_t **ppdiskbno, bool alloc) {
     // LAB 10: Your code here
-
     *ppdiskbno = NULL;
+    if (filebno >= NDIRECT + NINDIRECT)
+        return -E_INVAL;
+    if (filebno < NDIRECT)
+        *ppdiskbno = f->f_direct + filebno;
+    else {
+        if (!f->f_indirect) {
+            if (!alloc)
+                return -E_NOT_FOUND;
+            if (!(f->f_indirect = alloc_block()))
+                return -E_NO_DISK;
+            memset(diskaddr(f->f_indirect), 0, BLKSIZE);
+        }
+        *ppdiskbno = (blockno_t *)diskaddr(f->f_indirect) + filebno - NDIRECT;
+    }
 
     return 0;
 }
@@ -140,9 +176,17 @@ file_block_walk(struct File *f, blockno_t filebno, blockno_t **ppdiskbno, bool a
 int
 file_get_block(struct File *f, blockno_t filebno, char **blk) {
     // LAB 10: Your code here
-
+    
     *blk = NULL;
+    blockno_t * block = NULL;
+    int res = file_block_walk(f, filebno, &block, true);
+    if (res)
+        return res;
 
+    if (!*block && !(*block = alloc_block()))
+        return -E_NO_DISK;
+
+    *blk = (char *)diskaddr(*block);
     return 0;
 }
 

@@ -320,7 +320,6 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     // LAB 3: Your code here
     // LAB 8: Your code here
 
-<<<<<<< HEAD
     struct Elf *elf = (struct Elf *) binary;
     if (elf->e_magic != ELF_MAGIC) {
         cprintf("Incorrect format of ELF file");
@@ -386,7 +385,6 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
     bind_functions(env, binary, size, image_start, image_end);
 #endif
 
-=======
     /* NOTE: When merging origin/lab10 put this hunk at the end
      *       of the function, when user stack is already mapped. */
     if (env->env_type == ENV_TYPE_FS) {
@@ -397,7 +395,6 @@ load_icode(struct Env *env, uint8_t *binary, size_t size) {
         switch_address_space(as);
     }
 
->>>>>>> lab10
     return 0;
 }
 // static int
@@ -475,12 +472,10 @@ env_create(uint8_t *binary, size_t size, enum EnvType type) {
     if (res)
         panic("load_icode: %i", res);
     // LAB 8: Your code here
-<<<<<<< HEAD
-    env->binary = binary;
-    env->env_type = type;
-=======
     // LAB 10: Your code here
->>>>>>> lab10
+    if (type == ENV_TYPE_FS) {
+        env->env_tf.tf_rflags |= FL_IOPL_3;
+    }
 }
 
 
@@ -520,15 +515,12 @@ env_destroy(struct Env *env) {
      * it traps to the kernel. */
 
     // LAB 3: Your code here
-<<<<<<< HEAD
     env->env_status = ENV_DYING;
     env_free(env);
     if (env == curenv) {
         sched_yield();
     }
-=======
     // LAB 10: Your code here
->>>>>>> lab10
 
     /* Reset in_page_fault flags in case *current* environment
      * is getting destroyed after performing invalid memory access. */
