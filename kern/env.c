@@ -94,25 +94,28 @@ envid2env(envid_t envid, struct Env **env_store, bool need_check_perm) {
  */
 void
 env_init(void) {
-    /* Allocate vsys array with kzalloc_region().
-     * Don't forget about rounding.
-     * kzalloc_region only works with current_space != NULL */
-    // LAB 12: Your code here
+       /* Allocate envs array with kzalloc_region().
+        * Don't forget about rounding.
+        * kzalloc_region() only works with current_space != NULL */
+        // LAB 8: Your code here
+    if (current_space != NULL) {
+        envs = kzalloc_region(NENV * sizeof(*envs));
+        memset((void *)envs, 0, ROUNDUP(NENV * sizeof(*envs), PAGE_SIZE));
+        /* Map envs to UENVS read-only,
+        * but user-accessible (with PROT_USER_ set) */
+        // LAB 8: Your code here
+        map_region(current_space, UENVS, &kspace, (uintptr_t)envs, UENVS_SIZE, PROT_R | PROT_USER_);
 
-    /* Allocate envs array with kzalloc_region().
-     * Don't forget about rounding.
-     * kzalloc_region() only works with current_space != NULL */
-    // LAB 8: Your code here
+        /* Allocate vsys array with kzalloc_region().
+        * Don't forget about rounding.
+        * kzalloc_region only works with current_space != NULL */
+        // LAB 12: Your code here
+        vsys = kzalloc_region(UVSYS_SIZE);
+        memset((void *)vsys, 0, ROUNDUP(UVSYS_SIZE, PAGE_SIZE));
+        map_region(current_space, UVSYS, &kspace, (uintptr_t)vsys, UVSYS_SIZE, PROT_R | PROT_USER_);
+    }
 
-    envs = kzalloc_region(NENV * sizeof(*envs));
-    memset(envs, 0, ROUNDUP(NENV * sizeof(*envs), PAGE_SIZE));
 
-
-
-    /* Map envs to UENVS read-only,
-     * but user-accessible (with PROT_USER_ set) */
-    // LAB 8: Your code here
-    map_region(current_space, UENVS, &kspace, (uintptr_t)envs, UENVS_SIZE, PROT_R | PROT_USER_);
 
     /* Set up envs array */
 
