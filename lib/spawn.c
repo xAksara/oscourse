@@ -279,38 +279,37 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
     // LAB 11: Your code here
     /* NOTE: There's restriction on maximal filesz
      * for each program segment (HUGE_PAGE_SIZE) */
+
+    /* Allocate filesz - memsz in child */
+    /* Allocate filesz in parent to UTEMP */
+    /* seek() fd to fileoffset  */
+    /* read filesz to UTEMP */
+    /* Map read section conents to child */
+    /* Unmap it from parent */
+
     if (filesz > HUGE_PAGE_SIZE || filesz > memsz)
         return -E_INVALID_EXE;
 
-    // for some reason, there is no read_map() function
-    /* Allocate memsz - filesz in child */
-    if (memsz > filesz) {
-        res = sys_alloc_region(child, (void *)va + ROUNDUP(filesz, PAGE_SIZE), ROUNDUP(memsz - filesz, PAGE_SIZE), perm);
-        if (res)
-            return res;
+    if (memsz > filesz && 
+        (res = sys_alloc_region(child, (void *)va + ROUNDUP(filesz, PAGE_SIZE), ROUNDUP(memsz - filesz, PAGE_SIZE), perm))) {
+        return res;
     }
-    /* Allocate filesz in parent to UTEMP */
+
     if (filesz == 0)
         return 0;
-    res = sys_alloc_region(CURENVID, UTEMP, ROUNDUP(filesz, PAGE_SIZE), PTE_U | PTE_W | PTE_P);
-    if (res)
+    if ((res = sys_alloc_region(CURENVID, UTEMP, ROUNDUP(filesz, PAGE_SIZE), PTE_U | PTE_W | PTE_P)))
         return res;
-    /* seek() fd to fileoffset  */
-    res = seek(fd, fileoffset);
-    if (res)
-        return res;
-    /* read filesz to UTEMP */
-    res = readn(fd, UTEMP, filesz);
 
-    if (res < 0)
+    if ((res = seek(fd, fileoffset)))
         return res;
-    /* Map read section contents to child */
-    res = sys_map_region(CURENVID, UTEMP, child, (void *)va, filesz, perm);
-    if (res)
+
+    if ((res = readn(fd, UTEMP, filesz)) < 0)
         return res;
-    /* Unmap it from parent */
-    res = sys_unmap_region(CURENVID, UTEMP, ROUNDUP(filesz, PAGE_SIZE));
-    if (res)
+        
+    if ((res = sys_map_region(CURENVID, UTEMP, child, (void *)va, filesz, perm)))
+        return res;
+
+    if ((res = sys_unmap_region(CURENVID, UTEMP, ROUNDUP(filesz, PAGE_SIZE))))
         return res;
 
     return 0;

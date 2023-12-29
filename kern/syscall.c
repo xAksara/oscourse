@@ -190,7 +190,7 @@ sys_alloc_region(envid_t envid, uintptr_t addr, size_t size, int perm) {
     if (envid2env(envid, &env, 1) < 0)
         return -E_BAD_ENV;
 
-    if (addr >= MAX_USER_ADDRESS || PAGE_OFFSET(addr))
+    if (PAGE_OFFSET(addr) || addr > MAX_USER_ADDRESS || perm & ~(PROT_ALL))
         return -E_INVAL;
 
     perm |= PROT_LAZY;
@@ -238,9 +238,10 @@ sys_map_region(envid_t srcenvid, uintptr_t srcva,
     if (envid2env(dstenvid, &dstenv, 1))
         return -E_BAD_ENV;
 
-    if (CLASS_MASK(0) & srcva || CLASS_MASK(0) & dstva || srcva >= MAX_USER_ADDRESS || 
-        dstva >= MAX_USER_ADDRESS || perm & ~PROT_ALL || perm & ALLOC_ZERO || perm & ALLOC_ONE)
-        return -E_INVAL;
+    if (PAGE_OFFSET(srcva) || PAGE_OFFSET(dstva) ||
+        srcva >= MAX_USER_ADDRESS || dstva >= MAX_USER_ADDRESS ||
+        perm & ~PROT_ALL)
+            return -E_INVAL;
 
     perm |= PROT_USER_;
 
@@ -264,7 +265,7 @@ sys_unmap_region(envid_t envid, uintptr_t va, size_t size) {
     if (envid2env(envid, &env, 1))
         return -E_BAD_ENV;
 
-    if (CLASS_MASK(0) & va || va >= MAX_USER_ADDRESS)
+    if (PAGE_OFFSET(va) || va >= MAX_USER_ADDRESS)
         return -E_INVAL;
 
     unmap_region(&env->address_space, va, size);
